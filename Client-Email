@@ -62,11 +62,11 @@ time.sleep(1)
 while True:
     n = input("Would you like to subscribe to a channel?(Y/N): ")
     if n == "Y":
-        topic = mail_subject
+        topic = mail_subject  # The email subject is the topic
         a = input("Would you like to do something or just check the status?(A/B): ")
         while True:
             if a == "A":
-                payload = mail_content
+                payload = mail_content # the email contents is the payload
                 payload = payload.replace("\r\n", "")
                 client.publish(topic, payload, qos=1, retain=True)
                 message = MIMEText('Action Done')
