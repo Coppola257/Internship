@@ -1,0 +1,103 @@
+import time
+import paho.mqtt.client as mqtt
+import email
+import imaplib
+import smtplib
+from email.mime.text import MIMEText
+
+payload = None
+
+def on_connect(client, userdata, flags, rc):
+    print("Connected")
+    client.subscribe(topic, qos=1)
+
+def on_message(client, userdata, msg):
+    global payload
+    payload = msg.payload
+    print(str(msg.payload))
+
+EMAIL = 'tester1111111117@gmail.com' #Test email/pass
+PASSWORD = 'capraro2020'
+SERVER = 'imap.gmail.com'
+
+smtp_ssl_host = 'smtp.gmail.com'
+smtp_ssl_port = 465
+username = 'tester1111111117@gmail.com'
+password = 'capraro2020'
+
+mail = imaplib.IMAP4_SSL(SERVER)
+mail.login(EMAIL, PASSWORD)
+mail.select('inbox')
+status, data = mail.search(None, 'ALL')
+mail_ids = []
+
+for block in data:
+    mail_ids += block.split()
+
+for i in mail_ids:
+    status, data = mail.fetch(i, '(RFC822)')
+    for response_part in data:
+        if isinstance(response_part, tuple):
+            message = email.message_from_bytes(response_part[1])
+            mail_from = message['from']
+            mail_subject = message['subject']
+            if message.is_multipart():
+                mail_content = ''
+                for part in message.get_payload():
+                    if part.get_content_type() == 'text/plain':
+                        mail_content += part.get_payload()
+            else:
+                mail_content = message.get_payload()
+
+from_addr = 'tester1111111117@gmail.com'
+to_addrs = [mail_from]
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect("192.168.60.59", 1883, 60)  #Set the broker address and port
+
+client.loop_start()
+time.sleep(1)
+while True:
+    n = input("Would you like to subscribe to a channel?(Y/N): ")
+    if n == "Y":
+        topic = mail_subject
+        a = input("Would you like to do something or just check the status?(A/B): ")
+        while True:
+            if a == "A":
+                payload = mail_content
+                payload = payload.replace("\r\n", "")
+                client.publish(topic, payload, qos=1, retain=True)
+                message = MIMEText('Action Done')
+                message['subject'] = topic
+                message['from'] = from_addr
+                message['to'] = ', '.join(to_addrs)
+                server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+                server.login(username, password)
+                server.sendmail(from_addr, to_addrs, message.as_string())
+                server.quit()
+                time.sleep(5)
+                break
+            elif a == "B":
+                client.subscribe(topic, qos=1)
+                payload = mail_content
+                message = MIMEText(payload)
+                message['subject'] = topic
+                message['from'] = from_addr
+                message['to'] = ', '.join(to_addrs)
+                server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+                server.login(username, password)
+                server.sendmail(from_addr, to_addrs, message.as_string())
+                server.quit()
+                time.sleep(1)
+                break
+            else:
+                print("Please enter A or B")
+                a = input("Would you like to do something or just check the status?(A/B): ")
+    elif n == "N":
+        break
+    else:
+        print("Please enter Y or N")
+client.loop_stop()
+client.disconnect()
