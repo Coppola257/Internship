@@ -1,0 +1,127 @@
+import time
+import paho.mqtt.client as mqtt
+import email
+import imaplib
+import smtplib
+import json
+from email.mime.text import MIMEText
+
+payload = None
+
+def on_connect(client, userdata, flags, rc):
+    print("Connected")
+    client.subscribe(topic, qos=1)
+
+def on_message(client, userdata, msg):
+    global payload
+    payload = msg.payload
+    print(str(msg.payload))
+
+def deleteEmailIMAP(user, password, IMAP):
+    mail = imaplib.IMAP4_SSL(IMAP)
+    mail.login(username, password)
+    mail.select("inbox")
+    type, data = mail.search(None, 'ALL')
+    for num in data[0].split():
+        mail.store(num, '+FLAGS', r'(\Deleted)')
+    mail.expunge()
+
+
+EMAIL = 'tester1111111117@gmail.com'
+PASSWORD = 'capraro2020'
+SERVER = 'imap.gmail.com'
+
+smtp_ssl_host = 'smtp.gmail.com'
+smtp_ssl_port = 465
+username = 'tester1111111117@gmail.com'
+password = 'capraro2020'
+
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect("192.168.60.59", 1883, 60)
+
+client.loop_start()
+time.sleep(1)
+while True:
+    EMAIL = 'tester1111111117@gmail.com'
+    PASSWORD = 'capraro2020'
+    SERVER = 'imap.gmail.com'
+    mail = imaplib.IMAP4_SSL(SERVER)
+    mail.login(EMAIL, PASSWORD)
+    mail.select('inbox')
+    status, data = mail.search(None, 'ALL')
+    mail_ids = []
+    for block in data:
+        mail_ids += block.split()
+    for i in mail_ids:
+        status, data = mail.fetch(i, '(RFC822)')
+        for response_part in data:
+            if isinstance(response_part, tuple):
+                message = email.message_from_bytes(response_part[1])
+                mail_from = message['from']
+                mail_subject = message['subject']
+                if message.is_multipart():
+                    mail_content = ''
+                    for part in message.get_payload():
+                        if part.get_content_type() == 'text/plain':
+                            mail_content += part.get_payload()
+                else:
+                    mail_content = message.get_payload()
+        a = mail_content
+        a = a.replace("\r\n", "")
+        a = json.loads(a)
+        topic = mail_subject        
+        to_addrs = [mail_from]
+        from_addr = 'tester1111111117@gmail.com'
+        if message != None:
+            if a["status"] == "y":
+                client.subscribe(topic, qos=1)
+                if payload != None:
+                    message = MIMEText(payload.decode("utf-8"))
+                    message['subject'] = topic
+                    message['from'] = from_addr
+                    message['to'] = ', '.join(to_addrs)
+                    server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+                    server.login(username, password)
+                    server.sendmail(from_addr, to_addrs, message.as_string())
+                    deleteEmailIMAP(username, password, SERVER)
+                    server.quit()
+                    message = None
+                    time.sleep(5)
+            else:
+                client.publish(topic, a["action"], qos=1, retain=True)
+                message = MIMEText('Action Done')
+                message['subject'] = topic
+                message['from'] = from_addr
+                message['to'] = ', '.join(to_addrs)
+                server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+                server.login(username, password)
+                server.sendmail(from_addr, to_addrs, message.as_string())
+                deleteEmailIMAP(username, password, SERVER)
+                server.quit()
+                message = None
+                time.sleep(5)
+        elif message == None:
+            time.sleep(3)
+            for i in mail_ids:
+                status, data = mail.fetch(i, '(RFC822)')
+                for response_part in data:
+                    if isinstance(response_part, tuple):
+                        message = email.message_from_bytes(response_part[1])
+                        mail_from = message['from']
+                        mail_subject = message['subject']
+                        if message.is_multipart():
+                            mail_content = ''
+                            for part in message.get_payload():
+                                if part.get_content_type() == 'text/plain':
+                                    mail_content += part.get_payload()
+                        else:
+                            mail_content = message.get_payload()
+                payload = mail_content
+                payload = payload.replace("\r\n", "")        
+                to_addrs = [mail_from]
+                from_addr = 'tester1111111117@gmail.com'
+client.loop_stop()
+client.disconnect()
