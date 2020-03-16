@@ -27,14 +27,14 @@ def deleteEmailIMAP(user, password, IMAP):
     mail.expunge()
 
 
-EMAIL = 'tester1111111117@gmail.com'
-PASSWORD = 'capraro2020'
+EMAIL = 'MYEMAIL'
+PASSWORD = 'MYPASS'
 SERVER = 'imap.gmail.com'
 
 smtp_ssl_host = 'smtp.gmail.com'
 smtp_ssl_port = 465
-username = 'tester1111111117@gmail.com'
-password = 'capraro2020'
+username = 'MYEMAIL'
+password = 'MYPASS'
 
 
 client = mqtt.Client()
@@ -45,8 +45,8 @@ client.connect("192.168.60.59", 1883, 60)
 client.loop_start()
 time.sleep(1)
 while True:
-    EMAIL = 'tester1111111117@gmail.com'
-    PASSWORD = 'capraro2020'
+    EMAIL = 'MYEMAIL'
+    PASSWORD = 'MYPASS'
     SERVER = 'imap.gmail.com'
     mail = imaplib.IMAP4_SSL(SERVER)
     mail.login(EMAIL, PASSWORD)
