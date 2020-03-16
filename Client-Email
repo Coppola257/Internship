@@ -16,14 +16,14 @@ def on_message(client, userdata, msg):
     payload = msg.payload
     print(str(msg.payload))
 
-EMAIL = 'tester1111111117@gmail.com' #Test email/pass
-PASSWORD = 'capraro2020'
+EMAIL = 'MYEMAIL' #Test email/pass
+PASSWORD = 'MYPASS'
 SERVER = 'imap.gmail.com'
 
 smtp_ssl_host = 'smtp.gmail.com'
 smtp_ssl_port = 465
-username = 'tester1111111117@gmail.com'
-password = 'capraro2020'
+username = 'MYEMAIL'
+password = 'MYPASS'
 
 mail = imaplib.IMAP4_SSL(SERVER)
 mail.login(EMAIL, PASSWORD)
@@ -49,7 +49,7 @@ for i in mail_ids:
             else:
                 mail_content = message.get_payload()
 
-from_addr = 'tester1111111117@gmail.com'
+from_addr = 'MYEMAIL'
 to_addrs = [mail_from]
 
 client = mqtt.Client()
