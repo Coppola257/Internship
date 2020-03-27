@@ -48,8 +48,8 @@ SERVER = 'imap.gmail.com'
 
 smtp_ssl_host = 'smtp.gmail.com'
 smtp_ssl_port = 465
-username = 'tester1111111117@gmail.com'
-password = 'capraro2020'
+username = 'MYEMAIL'
+password = 'MYPASS'
 
 
 client = mqtt.Client()
