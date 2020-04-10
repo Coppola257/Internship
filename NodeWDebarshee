@@ -1,0 +1,44 @@
+import paho.mqtt.client as mqtt
+import time
+
+dataLoad = None
+
+response = ['On', 'Off']
+
+def on_connect(client, userdata, flags, rc):
+    print("connected to a broker")
+    client.subscribe("B", qos=1)
+
+def on_message(client, userdata, message):
+    global dataLoad
+    dataLoad = message.payload.decode()
+
+client = mqtt.Client("Device 2")
+client.connect("localhost", 1885)
+client._on_connect = on_connect
+client.on_message = on_message
+
+while True:
+    client.loop_start()
+    time.sleep(1)
+    if dataLoad == None:
+        time.sleep(3)       
+    while dataLoad != None:
+        if dataLoad == response[0]:
+            dataLoad = "Lights On"
+            client.publish("A", dataLoad, qos=1, retain=True)
+            dataLoad = dataLoad.encode('utf-8')
+            time.sleep(2)
+            dataLoad = None
+        elif dataLoad == response[1]:
+            dataLoad = "Lights Off"
+            client.publish("A", dataLoad, qos=1, retain=True)
+            time.sleep(2)
+            dataLoad = None
+        else:
+            dataLoad = "Not Valid Action"
+            client.publish("A", dataLoad, qos=1, retain=False)
+            time.sleep(2)
+            dataLoad = None
+client.loop_stop()
+client.disconnect()
