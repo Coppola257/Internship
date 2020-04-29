@@ -1,0 +1,184 @@
+import time
+import paho.mqtt.client as mqtt
+import email
+import imaplib
+import smtplib
+import json
+import jwt
+import base64
+from html.parser import HTMLParser
+from email.mime.text import MIMEText
+
+deviceName = "user111"
+deviceId = "userNode123"
+macAddress = "defaultAddr1234"
+makeRequest = None
+payload = None
+
+class messageObj():
+    def __init__(self, toDevice, role, msg):
+        self.toDevice = toDevice
+        self.role = role
+        self.msg = msg
+
+class payloadObj():
+    def __init__(self, payload_type, fromDevice, messageObj):
+        self.payload_type = payload_type
+        self.fromDevice = fromDevice
+        self.messageObj = messageObj
+
+def createRequestObj(mail_content):
+    a = json.loads(mail_content)
+    payloadObj.toDevice = mail_subject
+    messageObj.role = a["role"]
+    messageObj.msg = a["message"]
+    payloadObj.messageObj = {
+            "to_device": payloadObj.toDevice,
+            "role": messageObj.role,
+            "message":messageObj.msg
+        }
+    encodedMsg = jwt.encode(payloadObj.messageObj, macAddress, algorithm='HS256')
+    pyObj = {
+    "payload type":"message",
+    "from_device":deviceId,
+    "messageObj": encodedMsg.decode()
+    }
+    a = json.dumps(pyObj)
+    return a
+
+def decodedMessage (messageObj):
+    decodedMsg = jwt.decode(messageObj, macAddress, algorithms='HS256')
+    serializedMsgObj = json.dumps(decodedMsg)
+    deserializedMsgObj = json.loads(serializedMsgObj)
+    return deserializedMsgObj
+
+def on_connect(client, userdata, flags, rc):
+    print("Connected")
+    client.subscribe(topic, qos=1)
+
+
+def on_message(client, userdata, message):   
+    global payload
+    payload = message.payload.decode()
+    payloadObj = json.loads(payload)
+    payloadMsg = payloadObj["messageObj"]
+    fromDeviceInfo = payloadObj["from_device"]
+    decodedMssgObj = decodedMessage(payloadMsg)
+    recievedMessage = decodedMssgObj["message"]        
+    print("Recieved: "+ recievedMessage + " from " + fromDeviceInfo) 
+
+
+def deleteEmailIMAP(username, password, IMAP):
+    mail = imaplib.IMAP4_SSL(IMAP)
+    mail.login(username, password)
+    mail.select("inbox")
+    type, data = mail.search(None, 'ALL')
+    for num in data[0].split():
+        mail.store(num, '+FLAGS', r'(\Deleted)')
+    mail.expunge()
+
+
+def correctID(mail_from, topic, from_addr, to_addrs, smtp_ssl_host, smtp_ssl_port, username, password, SERVER):
+    if mail_from == "Anthony Coppola <anthony@caprarotechnologies.com>":
+        return False
+    else:
+        message = MIMEText('You are not Authorized')
+        message['subject'] = topic
+        message['from'] = from_addr
+        message['to'] = ', '.join(to_addrs)
+        server = smtplib.SMTP_SSL(smtp_ssl_host, smtp_ssl_port)
+        server.login(username, password)
+        server.sendmail(from_addr, to_addrs, message.as_string())
+        server.quit()
+        deleteEmailIMAP(username, password, SERVER)
+        message = None
+
+class HTMLTextExtractor(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.result = [ ]
+
+    def handle_data(self, d):
+        self.result.append(d)
+
+    def handle_charref(self, number):
+        codepoint = int(number[1:], 16) if number[0] in (u'x', u'X') else int(number)
+        self.result.append(unichr(codepoint))
+
+    def handle_entityref(self, name):
+        codepoint = htmlentitydefs.name2codepoint[name]
+        self.result.append(unichr(codepoint))
+
+    def get_text(self):
+        return u''.join(self.result)
+
+def html_to_text(html):
+    s = HTMLTextExtractor()
+    s.feed(html)
+    return s.get_text()
+
+EMAIL = 'tester1111111117@gmail.com'
+PASSWORD = 'capraro2020'
+SERVER = 'imap.gmail.com'
+
+
+smtp_ssl_host = 'smtp.gmail.com'
+smtp_ssl_port = 465
+username = 'tester1111111117@gmail.com'
+password = 'capraro2020'
+
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect("192.168.1.10", 1883, 60)
+
+
+client.loop_start()
+time.sleep(1)
+while True:
+    EMAIL = 'tester1111111117@gmail.com'
+    PASSWORD = 'capraro2020'
+    SERVER = 'imap.gmail.com'
+    try: 
+        mail = imaplib.IMAP4_SSL(SERVER)
+    except mail.abort:
+        mail = imaplib.IMAP4_SSL(SERVER)
+    time.sleep(2)
+    mail.login(EMAIL, PASSWORD)
+    mail.select('inbox')
+    status, data = mail.search(None, 'ALL')
+    mail_ids = []
+    for block in data:
+        mail_ids += block.split()
+    for i in mail_ids:
+        status, data = mail.fetch(i, '(RFC822)')
+        for response_part in data:
+            if isinstance(response_part, tuple):
+                message = email.message_from_bytes(response_part[1])
+                mail_from = message['from']
+                mail_subject = message['subject']
+                if message.is_multipart():
+                    mail_content = ''
+                    for part in message.get_payload():
+                        if part.get_content_type() == 'text/plain':
+                            mail_content += part.get_payload()
+                else:
+                    mail_content = message.get_payload()
+        a = mail_content
+        a = base64.urlsafe_b64decode(a).decode("utf-8")
+        a = html_to_text(a)
+        a = a.replace("\r\n", "")
+        msg = createRequestObj(a)
+        topic = mail_subject
+        to_addrs = [mail_from]
+        from_addr = 'tester1111111117@gmail.com'
+        while True:  
+            if (msg!= None):
+                time.sleep(1)
+                client.publish(topic, msg, 1, True)
+                msg = None
+            else:
+                continue
+        client.loop_stop()
+        client.disconnect()
